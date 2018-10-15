@@ -22,6 +22,10 @@
  * Hence each work item should handle 4 elements of @a and @at. This is
  * why I divide global_work_size by (wg_size_x / TILE_SIZE).
  *
+ * Also note that tiles have padding. Row number i is shifted by i elements.
+ * This prevents us from having memory bank conflicts when we copy tiles to
+ * back to @at array.
+ *
  * TL;DR;
  *
  * This code is huge, but no matter what work_group sizes we use (e.g. 8x8, 16x16, 32x32),
@@ -80,11 +84,14 @@ __kernel void matrix_transpose(__global float *a, __global float *at, unsigned i
         int tile_local_row = local_id / TILE_SIZE * elems_to_handle + it;
         int tile_local_col = local_col + (local_row * wg_cols_size) % TILE_SIZE;
 
+        // padding to avoid bank conflicts
+        int tile_padding = tile_local_row;
+
         if (tile_local_row < M && tile_local_col < K) {
             int a_idx = (tile_start_row + tile_local_row) * K + (tile_start_col + tile_local_col);
-            tile[tile_local_row * TILE_SIZE + tile_local_col] = a[a_idx];
+            tile[tile_local_row * TILE_SIZE + tile_local_col + tile_padding] = a[a_idx];
             // yes, I know, dead code, but it's just too useful for debugging to delete it
-            // printf("tile[%d][%d] = a[%d][%d] = %f\n", tile_local_row, tile_local_col, (tile_start_row + tile_local_row), (tile_start_col + tile_local_col), a[a_idx]);
+            // printf("tile[%d][%d] = a[%d][%d] = %f\n", tile_local_row, tile_local_col + tile_padding, (tile_start_row + tile_local_row), (tile_start_col + tile_local_col), a[a_idx]);
         }
 
         // This barrier ensures that we are completely done with the current row
@@ -101,11 +108,14 @@ __kernel void matrix_transpose(__global float *a, __global float *at, unsigned i
         int tile_local_row = local_id / TILE_SIZE * elems_to_handle + it;
         int tile_local_col = local_col + (local_row * wg_cols_size) % TILE_SIZE;
 
+        // again, padding
+        int tile_padding = tile_local_col;
+
         if (tile_local_row < M && tile_local_col < K) {
             int at_idx = (tile_start_row + tile_local_row) * M + (tile_start_col + tile_local_col);
-            at[at_idx] = tile[tile_local_col * TILE_SIZE + tile_local_row];
+            at[at_idx] = tile[tile_local_col * TILE_SIZE + tile_local_row + tile_padding];
             // yes, I know, dead code, but it's just too useful for debugging to delete it
-            // printf("at[%d][%d] (%d) = tile[%d][%d] = %f\n", (tile_start_row + tile_local_row), (tile_start_col + tile_local_col), at_idx, tile_local_col, tile_local_row, tile[tile_local_col * TILE_SIZE + tile_local_row]);
+            // printf("at[%d][%d] (%d) = tile[%d][%d] = %f\n", (tile_start_row + tile_local_row), (tile_start_col + tile_local_col), at_idx, tile_local_col, tile_local_row + tile_padding, tile[tile_local_col * TILE_SIZE + tile_local_row]);
         }
 
         // This barrier ensures that we are completely done with the current row

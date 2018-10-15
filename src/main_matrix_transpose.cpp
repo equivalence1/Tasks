@@ -45,7 +45,7 @@ int main(int argc, char **argv)
     {
         unsigned int work_group_size_x = 16;
         unsigned int work_group_size_y = 16;
-        ocl::LocalMem tile(TILE_SIZE * TILE_SIZE * sizeof(float));
+        ocl::LocalMem tile(TILE_SIZE * TILE_SIZE * sizeof(float) * 2);
 
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
