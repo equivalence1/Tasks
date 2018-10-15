@@ -49,8 +49,8 @@ int main(int argc, char **argv)
 
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
-            unsigned int global_work_size_x = K / 2;
-            unsigned int global_work_size_y = M / 2;
+            unsigned int global_work_size_x = K * work_group_size_x / TILE_SIZE;
+            unsigned int global_work_size_y = M * work_group_size_y / TILE_SIZE;
             matrix_transpose_kernel.exec(
                     gpu::WorkSize(work_group_size_x,
                                   work_group_size_y,

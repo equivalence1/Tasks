@@ -14,13 +14,20 @@
  * Though this architecture seems very natural, it has a significant drawback --
  * this way EVERY element from global arrays @a and @at gets loaded into cache line
  * twice, because typical size of a cache line is 128 bit (= 32 floats), and we only
- * read 16 elements from each row which our workitem
+ * read 16 elements from each row which our work item.
  *
  * Thus it's better to have TILE_SIZE = 32.
  *
  * The problem is that we can only have work groups of size 16x16 max.
  * Hence each work item should handle 4 elements of @a and @at. This is
- * why I divide global_work_size by four.
+ * why I divide global_work_size by (wg_size_x / TILE_SIZE).
+ *
+ * TL;DR;
+ *
+ * This code is huge, but no matter what work_group sizes we use (e.g. 8x8, 16x16, 32x32),
+ * it always reads each element of @a and @at to cache once.
+ * Naive implementation (where wg_size = 16x16, TILE_SIZE = 16) requires to read each
+ * element of @a to cache twice.
  *
  *      K
  *   +-----+
