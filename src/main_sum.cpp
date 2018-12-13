@@ -1,7 +1,47 @@
 #include <libutils/misc.h>
 #include <libutils/timer.h>
 #include <libutils/fast_random.h>
+#include <libgpu/context.h>
+#include <libgpu/shared_device_buffer.h>
 
+#include "cl/sum_cl.h"
+
+#define BLOCK_SIZE 128
+
+
+/*
+ * since shared_device_buffer's copy constructor only
+ * does shallow copy, it's okay to return by value
+ */
+gpu::gpu_mem_32u prefix_sum(ocl::Kernel& scan,
+                            gpu::gpu_mem_32u& as_gpu,
+                            unsigned int n,
+                            unsigned int wg_size)
+{
+    unsigned int res_n = (n + wg_size - 1) / wg_size * wg_size;
+
+    gpu::gpu_mem_32u sums;
+    sums.resizeN(res_n);
+    gpu::gpu_mem_32u b_sums;
+    b_sums.resizeN(res_n / wg_size + 1);
+    {
+        // it's important to set first element to zero
+        unsigned int z = 0;
+        b_sums.writeN(&z, 1);
+    }
+
+    scan.exec(gpu::WorkSize(wg_size, n),
+              as_gpu, b_sums, sums, n, 1);
+
+    if (wg_size >= n)
+        return sums;
+
+    b_sums = prefix_sum(scan, b_sums, res_n / wg_size + 1, wg_size);
+    scan.exec(gpu::WorkSize(wg_size, n),
+              as_gpu, b_sums, sums, n, 0);
+
+    return sums;
+}
 
 template<typename T>
 void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line)
@@ -58,7 +98,29 @@ int main(int argc, char **argv)
     }
 
     {
-        // TODO: implement on OpenCL
-        // gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+        gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+        gpu::Context context;
+        context.init(device.device_id_opencl);
+        context.activate();
+
+        ocl::Kernel scan(sum_kernel, sum_kernel_length, "scan");
+        scan.compile();
+
+        gpu::gpu_mem_32u as_gpu;
+        as_gpu.resize(n * sizeof(unsigned int));
+        as_gpu.write(as.data(), n * sizeof(unsigned int));
+
+        std::vector<unsigned int> res_cpu(n);
+
+        timer t;
+        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+            auto res_gpu = prefix_sum(scan, as_gpu, n, BLOCK_SIZE);
+            unsigned int res;
+            res_gpu.read(&res, sizeof(unsigned int), (n - 1) * sizeof(unsigned int));
+            EXPECT_THE_SAME(reference_sum, res, "GPU result should be consistent!");
+            t.nextLap();
+        }
+        std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+        std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
     }
 }
