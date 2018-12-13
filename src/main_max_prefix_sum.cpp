@@ -50,10 +50,13 @@ gpu::gpu_mem_32i max_elem(ocl::Kernel& mx,
     if (n == 1)
         return maxes;
 
-    mx.exec(gpu::WorkSize(BLOCK_SIZE, (n + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE),
-              as_gpu, maxes, n);
+    gpu::gpu_mem_32i new_maxes;
+    new_maxes.resizeN(n);
 
-    return max_elem(mx, as_gpu, maxes, n / 2);
+    mx.exec(gpu::WorkSize(BLOCK_SIZE, (n + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE),
+              as_gpu, maxes, new_maxes, n);
+
+    return max_elem(mx, as_gpu, new_maxes, n / 2);
 }
 
 std::pair<int, int> max_prefix_sum(ocl::Kernel& scan,

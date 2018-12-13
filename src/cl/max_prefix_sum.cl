@@ -55,13 +55,14 @@ __kernel void scan(__global int* as,
 
 __kernel void max_scan(__global int* as,
                        __global int* bs,
+                       __global int* cs,
                        uint n) {
   int i = get_global_id(0);
 
   if (2 * i + 1 < n) {
     if (as[bs[2 * i]] >= as[bs[2 * i + 1]])
-      bs[i] = bs[2 * i];
+      cs[i] = bs[2 * i];
     else
-      bs[i] = bs[2 * i + 1];
+      cs[i] = bs[2 * i + 1];
   }
 }
