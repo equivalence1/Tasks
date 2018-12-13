@@ -76,7 +76,10 @@ std::pair<int, int> max_prefix_sum(ocl::Kernel& scan,
     std::vector<int> cpu_res(1);
     gpu_res.read(cpu_res.data(), sizeof(int), 0);
 
-    return std::make_pair(sums_cpu[cpu_res[0]], cpu_res[0]);
+    if (sums_cpu[cpu_res[0]] < 0)
+        return std::make_pair(0, 0);
+
+    return std::make_pair(sums_cpu[cpu_res[0]], cpu_res[0] + 1);
 }
 
 template<typename T>
@@ -158,10 +161,9 @@ int main(int argc, char **argv)
             ocl::Kernel mx(max_prefix_sum_kernel, max_prefix_sum_kernel_length, "max_scan");
             mx.compile();
 
-            as.insert(as.begin(), 0);
             gpu::gpu_mem_32i as_gpu;
-            as_gpu.resize(n * sizeof(as[0]));
-            as_gpu.write(as.data(), n * sizeof(as[0]));
+            as_gpu.resize(n * sizeof(int));
+            as_gpu.write(as.data(), n * sizeof(int));
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
