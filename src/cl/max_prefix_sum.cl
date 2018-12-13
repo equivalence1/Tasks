@@ -3,7 +3,7 @@
 #endif
 
 #define unsigned int uint
-#define SWAP(a,b) {__local uint* tmp=a; a=b; b=tmp;}
+#define SWAP(a,b) {__local int* tmp=a; a=b; b=tmp;}
 
 #define BLOCK_SIZE 128
 
